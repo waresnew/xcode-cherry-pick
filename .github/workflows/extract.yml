@@ -1,0 +1,43 @@
+name: Extract Xcode files
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+
+      - name: Read Xcode version
+        id: xcode
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' /Applications/Xcode.app/Contents/version.plist)
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Extract requested files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir release
+          while read -r source_path asset_name; do
+            cp "/Applications/Xcode.app/$source_path" "release/$asset_name"
+          done < files.txt
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.xcode.outputs.version }}
+          files: release/*
+          overwrite_files: true
